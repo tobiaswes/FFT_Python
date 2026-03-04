@@ -31,44 +31,32 @@ def write_csv(filename, frequencies, magnitudes):
         for freq, mag in zip(frequencies, magnitudes):
             f.write(f"{freq:.2f},{mag:.6f}\n")
 
-def iterative_fft(x):
+def recursive_fft(x):
     N = len(x)
     
-    # 1. BIT-REVERSAL PERMUTATION
-    # Möblerar om indata så att de ligger i den ordning som 
-    # "butterfly"-operationerna kräver.
-    j = 0
-    for i in range(1, N):
-        bit = N >> 1
-        while j & bit:
-            j ^= bit
-            bit >>= 1
-        j ^= bit
-        if i < j:
-            x[i], x[j] = x[j], x[i]
+    # Basfall: Om listan bara har ett element
+    if N <= 1:
+        return x
 
-    # 2. BUTTERFLY BERÄKNINGAR
-    # Vi börjar med små grupper (2 punkter) och slår ihop dem till 
-    # större och större grupper (4, 8, 16...)
-    length = 2
-    while length <= N:
-        ang = -2j * cmath.pi / length
-        w_m = cmath.exp(ang) # Enhetsrot (twiddle factor)
+    # 1. Dela upp i jämna och udda index
+    # Python-slicing skapar nya listor här:
+    even = recursive_fft(x[0::2])
+    odd = recursive_fft(x[1::2])
+
+    # 2. Slå ihop resultaten (Butterfly)
+    # Vi skapar en tom lista för resultatet av denna nivå
+    combined = [0] * N
+    for k in range(N // 2):
+        # Twiddle factor
+        ang = -2j * cmath.pi * k / N
+        w = cmath.exp(ang)
         
-        for i in range(0, N, length):
-            w = 1 # Startvärde för rotationen
-            for k in range(i, i + length // 2):
-                # Här sker själva "Butterfly"-matematiken
-                u = x[k]
-                t = w * x[k + length // 2]
-                
-                x[k] = u + t
-                x[k + length // 2] = u - t
-                
-                w *= w_m # Rotera inför nästa par
-        length <<= 1 # Dubbla gruppstorleken (samma som length *= 2)
+        t = w * odd[k]
         
-    return x
+        combined[k] = even[k] + t
+        combined[k + N // 2] = even[k] - t
+        
+    return combined
 
 # --- TESTKÖRNING ---
 N = 4096
@@ -80,7 +68,7 @@ test_signal, fs = read_wav(filename, N)
 # 2. Tidmätning START
 start_time = time.perf_counter_ns()
 
-resultat = iterative_fft(test_signal)
+resultat = recursive_fft(test_signal)
 
 end_time = time.perf_counter_ns()
 # 3. Tidmätning SLUT
@@ -93,4 +81,4 @@ magnitudes = [abs(resultat[i]) for i in range(N // 2)]
 frequencies = [i * fs / N for i in range(N // 2)]
 
 # 5. Spara till CSV
-write_csv("fft_results_python.csv", frequencies, magnitudes)
+write_csv("recursive_fft_results_python.csv", frequencies, magnitudes)
