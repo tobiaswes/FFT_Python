@@ -72,7 +72,7 @@ def recursive_fft(x):
     return combined
 
 # --- TESTKÖRNING ---
-N = 4096
+N = 32768
 iterations = 100
 filename = "A5_test.wav"
 
